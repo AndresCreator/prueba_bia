@@ -39,3 +39,16 @@ Descargar el repositorio y sobre un ambiente python correr `pip install django &
 Luego para correr el endpoint desde la terminal pararse `prueba_bia/bia_project` correr `python manage.py runserver`
 
 Para correr las pruebas unitarias sobre `prueba_bia/bia_project` correr `.manage/py test`
+
+## curl request
+
+Un curl request de ejemplo es
+
+```
+curl --location --request POST 'http://127.0.0.1:8000/bia/' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+"date":"2022-10-25",
+"period":"monthly"
+}'
+```
