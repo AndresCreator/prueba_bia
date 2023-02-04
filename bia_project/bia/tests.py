@@ -16,12 +16,28 @@ class BiaListTestCase(APITestCase):
         )
         Bia.objects.create(
             active_energy=20,
-            meter_date=datetime.datetime(2022, 1, 1, 11, 0, 0),
+            meter_date=datetime.datetime(2022, 1, 1, 10, 59, 0),
             meter_id=1,
         )
         Bia.objects.create(
             active_energy=30,
-            meter_date=datetime.datetime(2022, 2, 1, 10, 0, 0),
+            meter_date=datetime.datetime(2022, 1, 1, 11, 0, 0),
+            meter_id=1,
+        )
+        Bia.objects.create(
+            active_energy=40,
+            meter_date=datetime.datetime(2022, 1, 1, 11, 59, 0),
+            meter_id=1,
+        )
+
+        Bia.objects.create(
+            active_energy=40,
+            meter_date=datetime.datetime(2022, 1, 2, 10, 0, 0),
+            meter_id=1,
+        )
+        Bia.objects.create(
+            active_energy=80,
+            meter_date=datetime.datetime(2022, 1, 2, 11, 0, 0), 
             meter_id=1,
         )
         self.factory = RequestFactory()
@@ -35,9 +51,9 @@ class BiaListTestCase(APITestCase):
         response = bia_list(request)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 2)
-        self.assertEqual(response.data[0]['meter_date'], "2022-01-01T10:00:00")
+        self.assertEqual(response.data[0]['meter_date'], datetime.datetime.strptime("2022-01-01T10:00:00", "%Y-%m-%dT%H:%M:%S"))
         self.assertEqual(response.data[0]['active_energy'], 10)
-        self.assertEqual(response.data[1]['meter_date'], "2022-01-01T11:00:00")
+        self.assertEqual(response.data[1]['meter_date'], datetime.datetime.strptime("2022-01-01T11:00:00", "%Y-%m-%dT%H:%M:%S"))
         self.assertEqual(response.data[1]['active_energy'], 10)
 
     def test_weekly_period(self):
@@ -60,9 +76,9 @@ class BiaListTestCase(APITestCase):
         self.assertEqual(response.data[4]['meter_date'], datetime.datetime.strptime("2021-12-31", "%Y-%m-%d"))
         self.assertEqual(response.data[4]['active_energy'], 0)
         self.assertEqual(response.data[5]['meter_date'], datetime.datetime.strptime("2022-01-01", "%Y-%m-%d"))
-        self.assertEqual(response.data[5]['active_energy'], 10.0)
+        self.assertEqual(response.data[5]['active_energy'], 30.0)
         self.assertEqual(response.data[6]['meter_date'], datetime.datetime.strptime("2022-01-02", "%Y-%m-%d"))
-        self.assertEqual(response.data[6]['active_energy'], 0)
+        self.assertEqual(response.data[6]['active_energy'], 40.0)
 
 
     def test_monthly_period(self):
@@ -75,6 +91,6 @@ class BiaListTestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 31)
         self.assertEqual(response.data[0]['meter_date'], datetime.datetime.strptime("2022-01-01", "%Y-%m-%d"))
-        self.assertEqual(response.data[0]['active_energy'], 10.0)
+        self.assertEqual(response.data[0]['active_energy'], 30.0)
         self.assertEqual(response.data[1]['meter_date'], datetime.datetime.strptime("2022-01-02", "%Y-%m-%d"))
-        self.assertEqual(response.data[1]['active_energy'], 10.0)
+        self.assertEqual(response.data[1]['active_energy'], 40.0)
