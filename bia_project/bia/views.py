@@ -1,14 +1,12 @@
-from django.http import HttpResponse, JsonResponse
 from rest_framework.decorators import api_view
 from rest_framework.parsers import JSONParser
 from bia.models import Bia
 from bia.serializers import BiaSerializer
 from datetime import datetime, timedelta
-import django_filters
-from django_filters import rest_framework as filters
-from django.db import models as django_models
 from rest_framework.response import Response
 from collections import defaultdict
+import calendar
+
 
 
 
@@ -28,24 +26,31 @@ from collections import defaultdict
 @api_view([ 'POST'])
 def bia_list(request):
     print(request)
-    by_hour = False
     if request.method == 'POST':
         data = JSONParser().parse(request)
         date = datetime.strptime(data["date"], '%Y-%m-%d')
         if(data["period"]=="daily"):
             t0, t1 = first_last_datetime_of_day(date)
-            by_hour=True
-        elif(data["period"]=="weekly"):
+            bia = get_bia(t0,t1)
+            response = energy_diff_by_hour(bia)
+            return Response(response)
+        if(data["period"]=="weekly"):
             t0, t1 = first_last_datetime_of_week(date)
-        elif(data["period"]=="monthly"):
+            bia = get_bia(t0,t1)
+            response = energy_diff_by_week(bia,date)
+            return Response(response)
+        if(data["period"]=="monthly"):
             t0, t1 = first_last_day_of_month(date)
-        bia = Bia.objects.filter(meter_date__range=[t0, t1]).order_by("meter_date")
-        bia = BiaSerializer(bia, many=True)
-        response = energy_difference(bia.data,by_hour)
-        return Response(response)
+            bia = get_bia(t0,t1)
+            response = energy_diff_by_month(bia,date)
+            return Response(response)
+
+        
     
 
-
+def get_bia(t0,t1):
+    bia = Bia.objects.filter(meter_date__range=[t0, t1]).order_by("meter_date")
+    return BiaSerializer(bia, many=True).data
 
 
 def first_last_datetime_of_day(some_datetime):
@@ -66,15 +71,15 @@ def first_last_day_of_month(some_datetime):
     last_day = last_day.replace(day=1) - timedelta(days=1)
     return (first_day, last_day)
 
-def energy_difference(data, by_hour=False):
+
+
+def energy_diff_by_hour(data):
     result = []
     diff_data = defaultdict(list)
     
     for item in data:
-        date = datetime.strptime(item["meter_date"],"%Y-%m-%dT%H:%M:%SZ")
+        date  = datetime.strptime(item["meter_date"],"%Y-%m-%dT%H:%M:%SZ")
         diff_unit = date.replace(minute=0, second=0, microsecond=0)
-        if not by_hour:
-            diff_unit = diff_unit.replace(hour=0)
         diff_data[diff_unit].append(item['active_energy'])
     
     for diff_unit, energy_values in diff_data.items():
@@ -84,3 +89,41 @@ def energy_difference(data, by_hour=False):
         })
         
     return result
+
+def _energy_diff_by_time_unit(data, time_unit, start, end, step):
+    result = []
+    diff_data = defaultdict(list)
+    
+    for item in data:
+        date  = datetime.strptime(item["meter_date"],"%Y-%m-%dT%H:%M:%SZ")
+        diff_unit = date.replace(minute=0, second=0, microsecond=0, hour=0)
+        diff_data[diff_unit].append(item['active_energy'])
+    
+    for i in range((end - start).days + 1):
+        diff_unit = start + timedelta(days=i)
+        if diff_unit in diff_data:
+            result.append({
+                'meter_date': diff_unit,
+                'active_energy': diff_data[diff_unit][-1] - diff_data[diff_unit][0]
+            })
+        else:
+            result.append({
+                'meter_date': diff_unit,
+                'active_energy': 0
+            })
+    return result
+
+def energy_diff_by_month(data, month):
+    num_days = calendar.monthrange(month.year, month.month)[1]
+    start = datetime(month.year, month.month, 1)
+    end = datetime(month.year, month.month, num_days)
+    
+    return _energy_diff_by_time_unit(data, 'month', start, end, timedelta(days=1))
+
+def energy_diff_by_week(data, week):
+    week_start = week - timedelta(days=week.weekday())
+    week_end = week_start + timedelta(days=6)
+    
+    return _energy_diff_by_time_unit(data, 'week', week_start, week_end, timedelta(days=1))
+
+
